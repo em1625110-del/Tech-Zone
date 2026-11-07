@@ -11,7 +11,7 @@ import ShopContext from "./ShopContext";
 import translations from "../data/translations";
 import { db } from "../firebase";
 import useAuth from "../hooks/useAuth";
-import { isElectronicProduct } from "../utils/products";
+import { correctProductPrice, isElectronicProduct } from "../utils/products";
 
 export default function ShopProvider({ children }) {
   const { user } = useAuth();
@@ -34,7 +34,9 @@ export default function ShopProvider({ children }) {
         setError("");
         setLoading(false);
         setCloudProducts(
-          snapshot.docs.map((item) => ({ ...item.data(), id: item.id, isCustom: true })),
+          snapshot.docs.map((item) =>
+            correctProductPrice({ ...item.data(), id: item.id, isCustom: true }),
+          ),
         );
       },
       (snapshotError) => {

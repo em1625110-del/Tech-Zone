@@ -21,6 +21,17 @@ The local `.env.local` is ignored by git. Firebase web API keys are public ident
 
 Admin role documents cannot be created or modified from the client. Never use the temporary open Firestore rules from an initial Firebase setup.
 
+## Telegram order notifications
+
+The `notifyAdminOnOrder` Firebase Cloud Function sends a Telegram message to the admin chat (`8768857023`) whenever a new order is created in Firestore. The bot token is kept in Firebase Secret Manager and is never included in the website bundle.
+
+1. In Telegram, open the bot and send `/start` so it can message you.
+2. The previously shared bot token is compromised. Revoke it with BotFather (`/revoke`) and use a newly generated token.
+3. From the project directory, set the replacement token as a Firebase secret: `firebase functions:secrets:set TELEGRAM_BOT_TOKEN`.
+4. Deploy the function: `firebase deploy --only functions:notifyAdminOnOrder`.
+
+Cloud Functions deployment requires the Firebase project to be selected in the Firebase CLI and a billing-enabled Firebase plan. The trigger retries failed Telegram sends; a rare retry after Telegram accepted a message may result in a duplicate notification.
+
 ## Firebase data
 
 - `users/{uid}` stores the display name, email, UID, and registration timestamp.

@@ -62,6 +62,7 @@ export default function CartPage() {
     <main className="section cart-page">
       <div className="cart-panel">
         <div className="cart-panel-heading"><h2>{t.cartTitle}</h2></div>
+        {success && <p className="admin-success" role="status" aria-live="polite">{success}</p>}
         {cart.length === 0 ? (
           <div className="empty-state">
             <ShoppingCart size={35} />
@@ -88,19 +89,23 @@ export default function CartPage() {
             </div>
             <div className="cart-total"><span>{t.cartTotal}</span><strong>{formatPrice(cartTotal)}</strong></div>
             {error && <p className="admin-error">{error}</p>}
-            {success && <p className="admin-success">{success}</p>}
             {!user && <p className="auth-note">Для оформления заказа <Link to="/auth">войдите или зарегистрируйтесь</Link>.</p>}
-            <button
-              type="button"
-              className="primary-button checkout-button"
-              onClick={() => {
-                setError("");
-                setCheckoutOpen(true);
-              }}
-              disabled={!user}
-            >
-              {t.cartCheckout} <ArrowRight size={17} />
-            </button>
+            {user ? (
+              <button
+                type="button"
+                className="primary-button checkout-button"
+                onClick={() => {
+                  setError("");
+                  setCheckoutOpen(true);
+                }}
+              >
+                {t.cartCheckout} <ArrowRight size={17} />
+              </button>
+            ) : (
+              <Link className="primary-button checkout-button" to="/auth">
+                {t.checkoutSignIn} <ArrowRight size={17} />
+              </Link>
+            )}
           </>
         )}
       </div>

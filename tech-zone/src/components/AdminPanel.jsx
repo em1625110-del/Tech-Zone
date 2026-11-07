@@ -18,7 +18,7 @@ import { useNavigate } from "react-router-dom";
 import { db } from "../firebase";
 import useAuth from "../hooks/useAuth";
 import useShop from "../hooks/useShop";
-import { isElectronicProduct } from "../utils/products";
+import { formatPrice, isElectronicProduct } from "../utils/products";
 
 const CATEGORY_OPTIONS = [
   { value: "smartphones", labelKey: "smartphones" },
@@ -266,7 +266,7 @@ export default function AdminPanel({ onAddProduct, inventoryProducts, onDeletePr
               <article className="admin-stat-card"><span><Package size={19} /></span><small>{a.electronicProducts}</small><strong>{inventoryProducts.filter(isElectronicProduct).length}</strong></article>
               <article className="admin-stat-card"><span><ClipboardList size={19} /></span><small>{a.orders}</small><strong>{orders.length}</strong></article>
               <article className="admin-stat-card"><span><Users size={19} /></span><small>{a.users}</small><strong>{users.length}</strong></article>
-              <article className="admin-stat-card"><span><CircleDollarSign size={19} /></span><small>{a.orderTotal}</small><strong>{revenue.toLocaleString({ ru: "ru-RU", ky: "ky-KG", en: "en-US" }[lang])} USD</strong></article>
+              <article className="admin-stat-card"><span><CircleDollarSign size={19} /></span><small>{a.orderTotal}</small><strong>{formatPrice(revenue)}</strong></article>
             </div>
             <section className="admin-card">
               <h2><BarChart3 size={18} /> {a.latestOrders}</h2>
@@ -315,7 +315,7 @@ export default function AdminPanel({ onAddProduct, inventoryProducts, onDeletePr
                         <img src={product.thumbnail} alt={product.title} />
                         <div className="admin-product-info">
                           <b>{product.title}</b>
-                          <span>{product.price} USD · {product.category || a.noCategory}</span>
+                          <span>{formatPrice(product.price)} · {product.category || a.noCategory}</span>
                           <small>{product.isCustom ? a.sourceFirebase : a.sourceCatalog}</small>
                         </div>
                         {!isElectronic && <span className="admin-product-warning">{a.outsideElectronics}</span>}
@@ -435,7 +435,7 @@ function OrderTable({ orders, onStatusChange, a, lang }) {
             <td>{order.phone || "—"}</td>
             <td>{order.paymentMethod === "cash" ? a.cashPayment : order.paymentMethod || "—"}</td>
             <td>{(order.items || []).map((item) => `${item.title} × ${item.quantity}`).join(", ") || "—"}</td>
-            <td>{Number(order.total || 0).toLocaleString({ ru: "ru-RU", ky: "ky-KG", en: "en-US" }[lang])} USD</td>
+            <td>{formatPrice(Number(order.total || 0))}</td>
             <td>{formatDate(order.createdAt, lang)}</td>
             <td><select aria-label={a.statusLabel.replace("{id}", order.id)} value={order.status || "new"} onChange={(event) => onStatusChange(order.id, event.target.value)}>
               {ORDER_STATUSES.map((status) => <option key={status} value={status}>{a[status]}</option>)}

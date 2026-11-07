@@ -11,11 +11,25 @@ export function isElectronicProduct(product) {
   return ELECTRONIC_CATEGORIES.has(product.category);
 }
 
+const PRICE_CORRECTIONS = new Map([
+  ["apple 13 pro", 35000],
+  ["apple 11", 15000],
+  ["airpods", 8000],
+  ["apple wotch", 25000],
+  ["ipad", 30000],
+  ["hp z-book", 65000],
+]);
+
+export function correctProductPrice(product) {
+  const correctedPrice = PRICE_CORRECTIONS.get(product.title?.trim().toLowerCase());
+  if (correctedPrice === undefined) return product;
+
+  return { ...product, price: correctedPrice, discountPercentage: 0 };
+}
+
 export function formatPrice(price) {
   return (
-    new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(
-      Math.round(price * 87),
-    ) + " сом"
+    new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(price) + " сом"
   );
 }
 
