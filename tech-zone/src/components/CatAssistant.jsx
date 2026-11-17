@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Send } from "lucide-react";
+import { httpsCallable } from "firebase/functions";
+import { functions } from "../firebase";
 import useShop from "../hooks/useShop";
 
 /* ── Реалистичный SVG-котик (рыжий табби, анфас) ── */
@@ -134,135 +136,6 @@ function CatSVG({ dir = 1 }) {
   );
 }
 
-/* ── ИИ-движок ответов (на includes() — надёжнее для кириллицы) ── */
-function getAIResponse(rawText, t) {
-  const q = rawText.toLowerCase().trim();
-
-  // Приветствия
-  if (
-    q.includes("привет") || q.includes("здравств") || q.includes("хай") ||
-    q.includes("hello") || q.includes("hi") || q.includes("салам") ||
-    q.includes("саламат") || q.includes("добр") || q.includes("hey") ||
-    q.includes("ку") || q.includes("qalay") || q.includes("morning") ||
-    q.includes("evening")
-  )
-    return t.catHi;
-
-  // Спасибо
-  if (
-    q.includes("спасибо") || q.includes("благодар") || q.includes("рахмат") ||
-    q.includes("thank")
-  )
-    return t.catThanks;
-
-  // Пока
-  if (
-    q.includes("пока") || q.includes("до свид") || q.includes("бай") ||
-    q.includes("bye") || q.includes("goodbye") || q.includes("сау бол")
-  )
-    return t.catBye;
-
-  // Кто ты
-  if (
-    q.includes("кто ты") || q.includes("тебя зов") || q.includes("твое имя") ||
-    q.includes("what") && q.includes("you") || q.includes("твоё имя") ||
-    q.includes("сен ким") || q.includes("аты")
-  )
-    return t.catWhoAmI;
-
-  // Категории / товары
-  if (
-    q.includes("категор") || q.includes("товар") || q.includes("продукт") ||
-    q.includes("каталог") || q.includes("что есть") || q.includes("что прода") ||
-    q.includes("category") || q.includes("product") || q.includes("товарлар") ||
-    q.includes("что купить") || q.includes("что можно")
-  )
-    return t.catProducts;
-
-  // Доставка
-  if (
-    q.includes("доставк") || q.includes("курьер") || q.includes("привез") ||
-    q.includes("сколько ждать") || q.includes("delivery") || q.includes("жеткир") ||
-    q.includes("когда будет") || q.includes("когда прид")
-  )
-    return t.catDelivery;
-
-  // Корзина / заказ
-  if (
-    q.includes("корзин") || q.includes("заказ") || q.includes("оформ") ||
-    q.includes("купить") || q.includes("купит") || q.includes("cart") ||
-    q.includes("order") || q.includes("себет") || q.includes("буйрут")
-  )
-    return t.catOrder;
-
-  // Оплата / цена
-  if (
-    q.includes("оплат") || q.includes("цен") || q.includes("стоим") ||
-    q.includes("скидк") || q.includes("price") || q.includes("pay") ||
-    q.includes("төлө") || q.includes("баа") || q.includes("арзан") ||
-    q.includes("сколько стоит")
-  )
-    return t.catPrice;
-
-  // Гарантия / возврат
-  if (
-    q.includes("гаранти") || q.includes("возврат") || q.includes("вернут") ||
-    q.includes("обмен") || q.includes("warranty") || q.includes("return") ||
-    q.includes("кепил") || q.includes("кайтар")
-  )
-    return t.catWarranty;
-
-  // Контакты
-  if (
-    q.includes("контакт") || q.includes("связать") || q.includes("телефон") ||
-    q.includes("номер") || q.includes("email") || q.includes("почта") ||
-    q.includes("address") || q.includes("адрес") || q.includes("байлан") ||
-    q.includes("позвонить")
-  )
-    return t.catContacts;
-
-  // Время работы
-  if (
-    q.includes("работа") || q.includes("график") || q.includes("время") ||
-    q.includes("когда открыт") || q.includes("часы") || q.includes("иштей") ||
-    q.includes("open hours")
-  )
-    return t.catHours;
-
-  // Тема
-  if (
-    q.includes("темн") || q.includes("светл") || q.includes("тема") ||
-    q.includes("theme") || q.includes("dark") || q.includes("light") ||
-    q.includes("режим")
-  )
-    return t.catTheme;
-
-  // Админ
-  if (
-    q.includes("админ") || q.includes("войти") || q.includes("пароль") ||
-    q.includes("логин") || q.includes("admin") || q.includes("login") ||
-    q.includes("вход")
-  )
-    return t.catAdmin;
-
-  // Избранное
-  if (
-    q.includes("избран") || q.includes("любим") || q.includes("heart") ||
-    q.includes("favorite") || q.includes("тандал")
-  )
-    return t.catFavorites;
-
-  // Отзывы
-  if (
-    q.includes("отзыв") || q.includes("мнен") || q.includes("оценк") ||
-    q.includes("review") || q.includes("feedback") || q.includes("пикир")
-  )
-    return t.catReviews;
-
-  // Не понял
-  return t.catDontKnow;
-}
-
 export default function CatAssistant() {
   const { t } = useShop();
 
@@ -274,6 +147,7 @@ export default function CatAssistant() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [walkPaused, setWalkPaused] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const catRef = useRef(null);
   const dragOffset = useRef({ x: 0, y: 0 });
@@ -377,15 +251,37 @@ export default function CatAssistant() {
     }
   }
 
-  function handleSend(e) {
+  async function handleSend(e) {
     e?.preventDefault();
     const text = input.trim();
-    if (!text) return;
+    if (!text || isLoading) return;
 
-    const userMsg = { from: "user", text };
-    const catMsg = { from: "cat", text: getAIResponse(text, t) };
-    setMessages((prev) => [...prev, userMsg, catMsg]);
+    const history = messages
+      .filter((message) => message.from === "user" || message.from === "cat")
+      .slice(-10)
+      .map((message) => ({
+        role: message.from === "user" ? "user" : "model",
+        text: message.text,
+      }));
+    setMessages((prev) => [...prev, { from: "user", text }]);
     setInput("");
+    setIsLoading(true);
+    try {
+      if (!functions) throw new Error(t.assistantError);
+      const askAssistant = httpsCallable(functions, "answerAssistantQuestion", {
+        timeout: 35000,
+      });
+      const { data } = await askAssistant({ message: text, history });
+      if (typeof data.answer !== "string" || !data.answer.trim()) {
+        throw new Error("The assistant returned an empty answer.");
+      }
+      setMessages((prev) => [...prev, { from: "cat", text: data.answer.trim() }]);
+    } catch (error) {
+      console.error("Assistant request failed:", error);
+      setMessages((prev) => [...prev, { from: "cat", text: t.assistantError }]);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   // Авто-скролл чата
@@ -393,7 +289,7 @@ export default function CatAssistant() {
     if (chatScrollRef.current) {
       chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, isLoading]);
 
   const bottomY = pos.y < 0 ? null : pos.y;
   const style = {
@@ -447,6 +343,7 @@ export default function CatAssistant() {
                 <span className="cat-msg-text">{msg.text}</span>
               </div>
             ))}
+            {isLoading && <div className="cat-msg cat"><span className="cat-msg-text">{t.assistantThinking}</span></div>}
           </div>
 
           <form className="cat-chat-input-row" onSubmit={handleSend}>
@@ -455,9 +352,10 @@ export default function CatAssistant() {
               placeholder={t.catInputPlaceholder}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              maxLength={200}
+              maxLength={2000}
+              disabled={isLoading}
             />
-            <button type="submit" className="cat-chat-send" aria-label="Send">
+            <button type="submit" className="cat-chat-send" aria-label="Send" disabled={isLoading}>
               <Send size={15} />
             </button>
           </form>

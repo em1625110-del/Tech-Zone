@@ -32,6 +32,16 @@ The `notifyAdminOnOrder` Firebase Cloud Function sends a Telegram message to the
 
 Cloud Functions deployment requires the Firebase project to be selected in the Firebase CLI and a billing-enabled Firebase plan. The trigger retries failed Telegram sends; a rare retry after Telegram accepted a message may result in a duplicate notification.
 
+## AI assistant
+
+The site chat uses the `answerAssistantQuestion` Firebase callable function and Gemini 2.5 Flash. The API key is stored as a Firebase secret and is never sent to the browser. The assistant can answer general questions and use the current Firestore product catalog, but it does not invent store policies such as delivery times or warranties.
+
+1. Create a Gemini API key in Google AI Studio.
+2. From the project directory, set it as a Firebase secret: `firebase functions:secrets:set GEMINI_API_KEY`.
+3. Deploy the assistant function: `firebase deploy --only functions:answerAssistantQuestion`.
+
+The chat sends user questions and recent conversation turns to Gemini to generate replies. Do not enter sensitive personal information. Firebase Functions deployment requires a billing-enabled Firebase plan; usage is subject to Google's Gemini API pricing and quotas.
+
 ## Firebase data
 
 - `users/{uid}` stores the display name, email, UID, and registration timestamp.

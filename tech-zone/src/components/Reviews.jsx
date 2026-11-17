@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
 import { Star, Send, Trash2, MessageSquare, User } from "lucide-react";
+import { Link } from "react-router-dom";
+import useAuth from "../hooks/useAuth";
 import useShop from "../hooks/useShop";
 
 const STORAGE_KEY = "techzone_reviews";
 
 export default function Reviews() {
+  const { authLoading, isAdmin, user } = useAuth();
   const { t } = useShop();
   const [reviews, setReviews] = useState([]);
   const [name, setName] = useState("");
@@ -31,6 +34,7 @@ export default function Reviews() {
 
   function handleSubmit(e) {
     e.preventDefault();
+    if (!user || authLoading) return;
     setError("");
     setSuccess("");
 
@@ -54,6 +58,7 @@ export default function Reviews() {
   }
 
   function handleDelete(reviewId) {
+    if (!isAdmin) return;
     setReviews((prev) => prev.filter((r) => r.id !== reviewId));
   }
 
@@ -89,6 +94,18 @@ export default function Reviews() {
       </div>
 
       {/* Форма отзыва */}
+      {authLoading ? (
+        <div className="review-form">
+          <p>{t.revAuthChecking}</p>
+        </div>
+      ) : !user ? (
+        <div className="review-form">
+          <p>{t.revSignInRequired}</p>
+          <Link to="/auth" className="primary-button review-submit">
+            {t.revSignIn}
+          </Link>
+        </div>
+      ) : (
       <form className="review-form" onSubmit={handleSubmit}>
         <div className="review-form-top">
           <label className="review-name">
@@ -141,6 +158,7 @@ export default function Reviews() {
           {t.revSubmit}
         </button>
       </form>
+      )}
 
       {/* Список отзывов */}
       <div className="reviews-list">
@@ -170,13 +188,16 @@ export default function Reviews() {
                     />
                   ))}
                 </div>
-                <button
-                  className="admin-delete-btn"
-                  onClick={() => handleDelete(review.id)}
-                  aria-label={t.revDelete}
-                >
-                  <Trash2 size={14} />
-                </button>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    className="admin-delete-btn"
+                    onClick={() => handleDelete(review.id)}
+                    aria-label={t.revDelete}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
               </div>
               <p className="review-text">{review.comment}</p>
             </div>
