@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
+  ArrowUpDown,
   Headphones,
+  Link2,
   Heart,
   Laptop,
   RotateCcw,
@@ -31,7 +34,33 @@ export default function Catalog({ favoritesOnly = false }) {
     t,
     toggleFavorite,
   } = useShop();
-  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [sort, setSort] = useState("default");
+  const [linkCopied, setLinkCopied] = useState(false);
+  // Открытый товар хранится в адресе (?product=ID), поэтому ссылкой на товар можно поделиться
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedProductId = searchParams.get("product");
+  const selectedProduct = selectedProductId
+    ? products.find((product) => String(product.id) === selectedProductId) || null
+    : null;
+
+  function setSelectedProduct(product) {
+    setLinkCopied(false);
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      if (product) next.set("product", String(product.id));
+      else next.delete("product");
+      return next;
+    });
+  }
+
+  async function copyProductLink() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setLinkCopied(true);
+    } catch {
+      setLinkCopied(false);
+    }
+  }
 
   useEffect(() => {
     if (favoritesOnly) setCategory("all");
@@ -54,12 +83,19 @@ export default function Catalog({ favoritesOnly = false }) {
     } else if (category !== "all") result = result.filter((product) => product.category === category);
     const query = search.trim().toLowerCase();
     if (query) result = result.filter((product) => `${product.title} ${product.description}`.toLowerCase().includes(query));
-    return result;
-  }, [products, favorites, favoritesOnly, category, search]);
+    const sorters = {
+      "price-asc": (left, right) => left.price - right.price,
+      "price-desc": (left, right) => right.price - left.price,
+      rating: (left, right) => (Number(right.rating) || 0) - (Number(left.rating) || 0),
+      discount: (left, right) => (Number(right.discountPercentage) || 0) - (Number(left.discountPercentage) || 0),
+    };
+    return sorters[sort] ? [...result].sort(sorters[sort]) : result;
+  }, [products, favorites, favoritesOnly, category, search, sort]);
 
   function resetFilters() {
     setSearch("");
     setCategory("all");
+    setSort("default");
   }
 
   return (
@@ -80,6 +116,17 @@ export default function Catalog({ favoritesOnly = false }) {
           <Search size={19} />
           <input type="text" placeholder={t.searchPlaceholder} value={search} onChange={(event) => setSearch(event.target.value)} />
           {search && <button onClick={() => setSearch("")} aria-label="Очистить поиск"><X size={17} /></button>}
+        </label>
+        <label className="catalog-sort">
+          <ArrowUpDown size={16} />
+          <span className="sr-only">{t.sortLabel}</span>
+          <select value={sort} onChange={(event) => setSort(event.target.value)} aria-label={t.sortLabel}>
+            <option value="default">{t.sortDefault}</option>
+            <option value="price-asc">{t.sortPriceAsc}</option>
+            <option value="price-desc">{t.sortPriceDesc}</option>
+            <option value="rating">{t.sortRating}</option>
+            <option value="discount">{t.sortDiscount}</option>
+          </select>
         </label>
         {!favoritesOnly && (
           <div className="category-list">
@@ -179,22 +226,26 @@ export default function Catalog({ favoritesOnly = false }) {
               <p className="product-modal-description">{selectedProduct.description}</p>
               <div className="product-modal-features">
                 <div>
-                  <span>Состояние</span>
-                  <strong>{selectedProduct.condition || "Новое"}</strong>
+                  <span>{t.modalCondition}</span>
+                  <strong>{selectedProduct.condition || t.modalConditionNew}</strong>
                 </div>
                 <div>
-                  <span>Бренд</span>
+                  <span>{t.modalBrand}</span>
                   <strong>{selectedProduct.brand || "Tech Zone"}</strong>
                 </div>
                 <div>
-                  <span>Гарантия</span>
-                  <strong>{selectedProduct.warranty || "12 месяцев"}</strong>
+                  <span>{t.modalWarranty}</span>
+                  <strong>{selectedProduct.warranty || t.modalWarrantyDefault}</strong>
                 </div>
               </div>
               <div className="product-modal-actions">
+                <button className="secondary-button" onClick={copyProductLink}>
+                  <Link2 size={16} />
+                  {linkCopied ? t.linkCopied : t.copyLink}
+                </button>
                 <button className="secondary-button" onClick={() => toggleFavorite(selectedProduct.id)}>
                   <Heart size={16} fill={favorites.includes(selectedProduct.id) ? "currentColor" : "none"} />
-                  {favorites.includes(selectedProduct.id) ? "В избранном" : "В избранное"}
+                  {favorites.includes(selectedProduct.id) ? t.inFavorites : t.addToFavorites}
                 </button>
                 <button className="primary-button" onClick={() => { addToCart(selectedProduct); setSelectedProduct(null); }}>
                   {t.addToCart}

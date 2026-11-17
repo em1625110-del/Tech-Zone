@@ -1,15 +1,18 @@
+import { lazy, Suspense } from "react";
 import { Route, Routes } from "react-router-dom";
 import AuthProvider from "./context/AuthProvider";
 import ShopProvider from "./context/ShopProvider";
 import AdminLayout from "./layouts/AdminLayout";
 import StoreLayout from "./layouts/StoreLayout";
-import AdminPage from "./pages/AdminPage";
 import AccountPage from "./pages/AccountPage";
 import AuthPage from "./pages/AuthPage";
 import CartPage from "./pages/CartPage";
 import CatalogPage from "./pages/CatalogPage";
 import HomePage from "./pages/HomePage";
 import NotFoundPage from "./pages/NotFoundPage";
+
+// Админка загружается отдельно, только когда её открывают
+const AdminPage = lazy(() => import("./pages/AdminPage"));
 
 export default function App() {
   return (
@@ -26,7 +29,7 @@ export default function App() {
             <Route path="*" element={<NotFoundPage />} />
           </Route>
           <Route element={<AdminLayout />}>
-            <Route path="admin" element={<AdminPage />} />
+            <Route path="admin" element={<Suspense fallback={<main className="section"><p>…</p></main>}><AdminPage /></Suspense>} />
           </Route>
         </Routes>
       </ShopProvider>

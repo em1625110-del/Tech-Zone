@@ -5,6 +5,7 @@ import useShop from "../hooks/useShop";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
 import CatAssistant from "../components/CatAssistant";
+import { assistantAvailable } from "../utils/assistant";
 import { Zap } from "lucide-react";
 
 export default function StoreLayout() {
@@ -25,7 +26,7 @@ export default function StoreLayout() {
       <SiteHeader />
       <Outlet />
       <SiteFooter />
-      <CatAssistant />
+      {assistantAvailable && <CatAssistant />}
     </div>
   );
 }

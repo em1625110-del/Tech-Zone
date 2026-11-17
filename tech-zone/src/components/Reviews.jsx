@@ -3,12 +3,23 @@ import { Star, Send, Trash2, MessageSquare, User } from "lucide-react";
 import { Link } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 import useShop from "../hooks/useShop";
-
-const STORAGE_KEY = "techzone_reviews";
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+} from "firebase/firestore";
+import { db } from "../firebase";
+import { sendTelegramReview } from "../utils/telegram";
 
 export default function Reviews() {
   const { authLoading, isAdmin, user } = useAuth();
-  const { t } = useShop();
+  const { lang, t } = useShop();
   const [reviews, setReviews] = useState([]);
   const [name, setName] = useState("");
   const [rating, setRating] = useState(5);
@@ -16,50 +27,58 @@ export default function Reviews() {
   const [comment, setComment] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  // Загружаем отзывы из localStorage
+  // Отзывы хранятся в Firestore (коллекция "reviews") и видны всем посетителям
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) setReviews(JSON.parse(saved));
-    } catch {
-      // ignore
-    }
+    if (!db) return undefined;
+    return onSnapshot(
+      query(collection(db, "reviews"), orderBy("createdAt", "desc"), limit(100)),
+      (snapshot) => setReviews(snapshot.docs.map((item) => ({ ...item.data(), id: item.id }))),
+      (snapshotError) => console.error("Failed to load reviews", snapshotError),
+    );
   }, []);
 
-  // Сохраняем в localStorage при изменении
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(reviews));
-  }, [reviews]);
-
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
-    if (!user || authLoading) return;
+    if (!user || authLoading || submitting || !db) return;
     setError("");
     setSuccess("");
 
-    if (!name.trim()) return setError(t.revErrName);
-    if (!comment.trim()) return setError(t.revErrComment);
+    const trimmedName = name.trim();
+    const trimmedComment = comment.trim();
+    if (!trimmedName) return setError(t.revErrName);
+    if (!trimmedComment) return setError(t.revErrComment);
 
-    const newReview = {
-      id: Date.now(),
-      name: name.trim(),
-      rating,
-      comment: comment.trim(),
-      date: new Date().toISOString(),
-    };
-
-    setReviews((prev) => [newReview, ...prev]);
-    setName("");
-    setRating(5);
-    setComment("");
-    setSuccess(t.revSuccess);
-    setTimeout(() => setSuccess(""), 3000);
+    setSubmitting(true);
+    try {
+      await addDoc(collection(db, "reviews"), {
+        userId: user.uid,
+        name: trimmedName.slice(0, 40),
+        rating,
+        comment: trimmedComment.slice(0, 500),
+        createdAt: serverTimestamp(),
+      });
+      sendTelegramReview({ name: trimmedName, email: user.email, rating, comment: trimmedComment });
+      setName("");
+      setRating(5);
+      setComment("");
+      setSuccess(t.revSuccess);
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (submitError) {
+      setError(submitError.message);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
-  function handleDelete(reviewId) {
-    if (!isAdmin) return;
-    setReviews((prev) => prev.filter((r) => r.id !== reviewId));
+  async function handleDelete(reviewId) {
+    if (!db) return;
+    try {
+      await deleteDoc(doc(db, "reviews", reviewId));
+    } catch (deleteError) {
+      setError(deleteError.message);
+    }
   }
 
   const avgRating =
@@ -67,8 +86,9 @@ export default function Reviews() {
       ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
       : "—";
 
-  function formatDate(dateStr) {
-    return new Date(dateStr).toLocaleDateString("ru-RU", {
+  function formatDate(timestamp) {
+    const date = timestamp?.toDate ? timestamp.toDate() : new Date();
+    return date.toLocaleDateString({ ru: "ru-RU", ky: "ky-KG", en: "en-US" }[lang] || "ru-RU", {
       day: "numeric",
       month: "long",
       year: "numeric",
@@ -153,7 +173,7 @@ export default function Reviews() {
         {error && <p className="admin-error">{error}</p>}
         {success && <p className="admin-success">{success}</p>}
 
-        <button type="submit" className="primary-button review-submit">
+        <button type="submit" className="primary-button review-submit" disabled={submitting}>
           <Send size={16} />
           {t.revSubmit}
         </button>
@@ -177,7 +197,7 @@ export default function Reviews() {
                 </div>
                 <div className="review-meta">
                   <b>{review.name}</b>
-                  <span>{formatDate(review.date)}</span>
+                  <span>{formatDate(review.createdAt)}</span>
                 </div>
                 <div className="review-stars">
                   {[1, 2, 3, 4, 5].map((star) => (
@@ -188,7 +208,7 @@ export default function Reviews() {
                     />
                   ))}
                 </div>
-                {isAdmin && (
+                {(isAdmin || review.userId === user?.uid) && (
                   <button
                     type="button"
                     className="admin-delete-btn"

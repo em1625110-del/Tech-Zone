@@ -12,6 +12,7 @@ import translations from "../data/translations";
 import { db } from "../firebase";
 import useAuth from "../hooks/useAuth";
 import { correctProductPrice, isElectronicProduct } from "../utils/products";
+import { sendTelegramOrder } from "../utils/telegram";
 
 export default function ShopProvider({ children }) {
   const { user } = useAuth();
@@ -126,7 +127,7 @@ export default function ShopProvider({ children }) {
       quantity,
     }));
     const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    await addDoc(collection(db, "orders"), {
+    const orderRef = await addDoc(collection(db, "orders"), {
       userId: user.uid,
       email: user.email,
       firstName,
@@ -140,6 +141,15 @@ export default function ShopProvider({ children }) {
       createdAt: serverTimestamp(),
     });
     setCart([]);
+    sendTelegramOrder(orderRef.id, {
+      email: user.email,
+      firstName,
+      lastName,
+      address,
+      phone: normalizedPhone,
+      items,
+      total,
+    });
   }, [cart, user]);
 
   const value = useMemo(

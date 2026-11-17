@@ -7,13 +7,15 @@ import {
   ImagePlus,
   LayoutDashboard,
   LogOut,
+  MessageSquare,
   Package,
   Plus,
+  Star,
   Trash2,
   Users,
   X,
 } from "lucide-react";
-import { collection, doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
+import { collection, deleteDoc, doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { db } from "../firebase";
 import useAuth from "../hooks/useAuth";
@@ -45,6 +47,7 @@ const SECTIONS = [
   { id: "products", labelKey: "products", icon: Package },
   { id: "orders", labelKey: "orders", icon: ClipboardList },
   { id: "users", labelKey: "users", icon: Users },
+  { id: "reviews", labelKey: "reviews", icon: MessageSquare },
 ];
 
 const ORDER_STATUSES = ["new", "processing", "completed", "cancelled"];
@@ -63,6 +66,7 @@ export default function AdminPanel({ onAddProduct, inventoryProducts, onDeletePr
   const [section, setSection] = useState("overview");
   const [orders, setOrders] = useState([]);
   const [users, setUsers] = useState([]);
+  const [reviews, setReviews] = useState([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [addProductOpen, setAddProductOpen] = useState(false);
   const [productSearch, setProductSearch] = useState("");
@@ -96,11 +100,30 @@ export default function AdminPanel({ onAddProduct, inventoryProducts, onDeletePr
       (snapshot) => setUsers(snapshot.docs.map((item) => ({ ...item.data(), id: item.id }))),
       (error) => setActionError(a.usersLoadError.replace("{error}", error.message)),
     );
+    const unsubscribeReviews = onSnapshot(
+      collection(db, "reviews"),
+      (snapshot) => setReviews(
+        snapshot.docs
+          .map((item) => ({ ...item.data(), id: item.id }))
+          .sort((left, right) => (right.createdAt?.toMillis?.() || 0) - (left.createdAt?.toMillis?.() || 0)),
+      ),
+      (error) => setActionError(a.reviewsLoadError.replace("{error}", error.message)),
+    );
     return () => {
       unsubscribeOrders();
       unsubscribeUsers();
+      unsubscribeReviews();
     };
-  }, [a.ordersLoadError, a.usersLoadError]);
+  }, [a.ordersLoadError, a.usersLoadError, a.reviewsLoadError]);
+
+  async function handleDeleteReview(reviewId) {
+    setActionError("");
+    try {
+      await deleteDoc(doc(db, "reviews", reviewId));
+    } catch (error) {
+      setActionError(error.message);
+    }
+  }
 
   const visibleProducts = useMemo(() => {
     const query = productSearch.trim().toLowerCase();
@@ -339,6 +362,25 @@ export default function AdminPanel({ onAddProduct, inventoryProducts, onDeletePr
         )}
 
         {section === "orders" && <section className="admin-card"><h2><ClipboardList size={18} /> {a.allOrders} ({orders.length})</h2><OrderTable orders={orders} onStatusChange={handleOrderStatus} a={a} lang={lang} /></section>}
+        {section === "reviews" && (
+          <section className="admin-card">
+            <h2><MessageSquare size={18} /> {a.reviews} ({reviews.length})</h2>
+            {reviews.length === 0 ? <p className="admin-muted">{a.noReviews}</p> : (
+              <div className="admin-table-wrap"><table className="admin-table">
+                <thead><tr><th>{a.name}</th><th>{a.reviewRating}</th><th>{a.reviewText}</th><th>{a.date}</th><th></th></tr></thead>
+                <tbody>{reviews.map((review) => (
+                  <tr key={review.id}>
+                    <td>{review.name}</td>
+                    <td><Star size={13} fill="currentColor" /> {review.rating}</td>
+                    <td>{review.comment}</td>
+                    <td>{formatDate(review.createdAt, lang)}</td>
+                    <td><button type="button" className="admin-delete-btn" onClick={() => handleDeleteReview(review.id)} aria-label={a.deleteReview}><Trash2 size={14} /></button></td>
+                  </tr>
+                ))}</tbody>
+              </table></div>
+            )}
+          </section>
+        )}
         {section === "users" && (
           <section className="admin-card">
             <h2><Users size={18} /> {a.users} ({users.length})</h2>

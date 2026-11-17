@@ -22,4 +22,17 @@ const githubPagesFallback = {
 export default defineConfig({
   plugins: [react(), githubPagesFallback],
   base: '/Tech-Zone/',
+  build: {
+    rolldownOptions: {
+      output: {
+        // Библиотеки — в отдельные файлы: браузер кеширует их между обновлениями сайта
+        codeSplitting: {
+          groups: [
+            { name: 'firebase', test: /node_modules[\/]@?firebase/ },
+            { name: 'react', test: /node_modules[\/](react|react-dom|react-router|scheduler)/ },
+          ],
+        },
+      },
+    },
+  },
 })

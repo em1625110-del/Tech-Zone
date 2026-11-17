@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Send } from "lucide-react";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "../firebase";
+import { askAssistant } from "../utils/assistant";
 import useShop from "../hooks/useShop";
 
 /* ── Реалистичный SVG-котик (рыжий табби, анфас) ── */
@@ -137,7 +136,7 @@ function CatSVG({ dir = 1 }) {
 }
 
 export default function CatAssistant() {
-  const { t } = useShop();
+  const { products, t } = useShop();
 
   // Позиция котика
   const [pos, setPos] = useState({ x: 60, y: -1 });
@@ -267,15 +266,8 @@ export default function CatAssistant() {
     setInput("");
     setIsLoading(true);
     try {
-      if (!functions) throw new Error(t.assistantError);
-      const askAssistant = httpsCallable(functions, "answerAssistantQuestion", {
-        timeout: 35000,
-      });
-      const { data } = await askAssistant({ message: text, history });
-      if (typeof data.answer !== "string" || !data.answer.trim()) {
-        throw new Error("The assistant returned an empty answer.");
-      }
-      setMessages((prev) => [...prev, { from: "cat", text: data.answer.trim() }]);
+      const answer = await askAssistant(text, history, products);
+      setMessages((prev) => [...prev, { from: "cat", text: answer }]);
     } catch (error) {
       console.error("Assistant request failed:", error);
       setMessages((prev) => [...prev, { from: "cat", text: t.assistantError }]);
